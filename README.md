@@ -36,7 +36,8 @@ VMSBackup archive.bck -E
 
 Which will extract the latest (only) revision of each file to the current folder using automatic extraction rules, where it will either try to convert the file into ASCII, or extract the file as pure binary.
 
-*Extracting a Single File*
+
+**Extracting a Single File**
 
 Currently the file mask *considers* the directory as part of the filename, even if by default it's stripped out.  So if you need a specific file, you may need to use part of the folder name.  i.e.
 
@@ -50,7 +51,8 @@ Note: The version after the semi-colon follows OpenVMS rules, meaning:
     
 And so on...  If there's enough demand I can probably tweak this.  However in my use case, I effectively always just extracted everything, making this mask more an afterthought I'm afraid.
 
-*Folder Handling*
+
+**Folder Handling**
 
 Because of the relative annoyance of a truly portable OS directory handling, this version doesn't support path preservation, however, this can be baked into the filename itself and post-processed if needed.  To include the full path in the filename, use the "-F" flag.  i.e.
 
@@ -60,7 +62,8 @@ This will then cause files extracted to look like:
 
 [mypath.in.vax.format]myfile.txt
 
-*Version Handling*
+
+**Version Handling**
 
 Most file systems these days don't support file versioning natively within the file system itself.  Meaning if you want to extract a specific version, you *can* use the method outlined in *Extracting a Single File*, but if you need multiple versions extracted in one pass, the "-V" flag will come into play, which will append the file version onto the file name.  And chances are if you're doing so, you'll want to re-adjust the mask as follows:
 
@@ -73,7 +76,8 @@ myfile.txt;1
 
 But once extracted, remember you're now at the mercy of the host OS.  And the version number will cause the OS to misinterpret the file extention if you're hoping to double click etc.  But if you're dealing with a Vax archive, I'm sure you knew that already!
 
-*Extraction Modes*
+
+**Extraction Modes**
 
 So by default, smart extract is used.  This will essentailly analyse a file to determine if it thinks it's plain text, and if so, try and decode it in a way that's amiable to your host OS.  So regardless as to whether your file was a Stream, a Record (Fixed/Variable Length) or any other esoteric format, the tool will try and determine how best to re-intepret the file such that you can open it in your text editor of choice, otherwise it will just dump the file contents as-is.
 
