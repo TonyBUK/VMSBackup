@@ -1,0 +1,357 @@
+-------------------------------------------------------------------------------------------
+Introduction
+-------------------------------------------------------------------------------------------
+
+This application stemmed from my inability to verify archives of VAX Media in a PC
+environment for legacy programs I'm responsible for.  Previously, I'd either need to get
+listings, or visit the server admin to get him to mount the VAX Media on the network.
+
+For those who don't know VAX Backup Sets are essentially equivalent to .TAR archives in
+UNIX, except they also store all the Open VMS O/S data, such as record formats (whereas on
+most operating systems, a text file would be delimited by LR/CR or CR conventions,
+typically in Open VMS, they would be stored as variable length records, meaning if you
+don't properly handle them, you'll typically end up with a file where everything is on a
+single line).
+
+Granted the implementation is severe overkill, however, for me it's actually
+become a very very useful utility.  It evolved from a simple parsing application derived
+from me staring at the backup data sets with a hex editor trying to determine the rules
+into a more considered/researched application capable of extracting data from backup sets.
+
+The main feature I find useful is the "Smart" extraction.  This feature is quite simple,
+any extracted files are considered ASCII unless any contents within the file are found to
+be in the extended ASCII range (> 0x7F).  Obviously there's always exceptions to the rule,
+but it works pretty well in my testing, and the tool does allow itself to be forced into
+the appropriate mode.
+
+
+-------------------------------------------------------------------------------------------
+O/S Requirements
+-------------------------------------------------------------------------------------------
+
+The compiled executable will require any version of Windows (I'm guessing '95 onwards).
+Personally I've tried it in XP and Vista.
+
+If building from source, there's no reason that it shouldn't support other O/S.  I have
+built and run it from Solaris and OS X Snow Leopard.  I've also heard of successful results
+on pre-Intel versions of OSX.
+
+To port, you'll need to modify 1 file (possibly more if it's on a system I've not yet
+ported to).
+
+alignment.h
+For an x86 processor (i.e., Windows, OS X Snow Leopard etc) leave as is.
+For non-x86 processors, consult the endian rules etc.  On the solaris box I used, I needed
+to use the 2nd set (i.e., reverse ordered the bytes).
+
+For convenience, the VMS Executable self-checks it's alignment on startup, and reports an
+error if there's a mismatch.
+
+For type sizes, this defers compatability to stdint.h.  If this is not available (i.e.,
+Visual Studio), grab a copy from http://code.google.com/p/msinttypes/downloads/list
+
+For Solaris 9, use inttypes.h instead (my kludge was just to copy this locally as
+stdint.h).
+
+I appreciate this isn't as easy as before, but providing you have an up-to-date compiler,
+it should be relatively painless to find an implementation.
+
+For convenience, the VMS Executable self-checks it's types on startup, and reports an
+error if there's a mismatch.
+
+Note : By default, alignment is setup for X86.
+
+
+-------------------------------------------------------------------------------------------
+Features
+-------------------------------------------------------------------------------------------
+
+Various list formats.
+- Supress
+- Brief (mimicks the first 2 lines of : backup /list /save_set /full
+- Full (mimicks all of backup /list /save_set / full)
+- CSV (all data in full output as a CSV file)
+
+File Extraction.
+- File and Version Masking (including limited relative version support (;0, ;-1 etc)
+- 4 Modes, Smart, ASCII, Binary, Raw.
+- Smart switches ASCII/Binary per file having analysed the contents.
+- ASCII handles end of line protocols (CR/LF).
+- Binary outputs the raw (except records) files.
+- Raw outputs the raw binary data, including the record length fields.
+- Extract with version numbers in-tact/suppressed
+- Extract with path names in-tact (Note : Currently, the path is actually just put in the
+  file name as it's not hugely useful for me at present, and I didn't really want to faff
+  about with too much of the O/S API's, but this behaviour will almost certainly change in
+  future versions).
+
+
+-------------------------------------------------------------------------------------------
+TODO
+-------------------------------------------------------------------------------------------
+
+1/  Plug in any gaps in terms of the data handling.  I'm certain that certain assumptions in
+    the app may only hold true for backup sets I've created.
+
+2/  Hookup handling of other record types.
+
+3/  More robust error handling.
+
+4/  CRC validation of contents.
+
+5/  Expand debug mode to provide more useful info on crashes.
+
+6/  Possibly make smart mode remember binary extentions?  i.e., if most .bin files have
+    binary data, treat all .bin files as binary...
+
+7/  Modify the interface to be more consistant with the VMS backup tool itself for ease of
+    migration.
+
+8/  Better list output handling
+
+9/  Maybe allow other mechanisms for converting records.  Currently I feel that CR/LF and
+    Raw mode between them handle this quite well (CR/LF give you delimeters, whereas as Raw
+    gives the end user the ability to manually convert them).  Possibly some sort of plug-in
+    based mechanism?
+
+10/ Possibly improve the wild card handling to exclude paths from the pattern match?
+
+11/ Handle other aspects of the block, such as the Block Summary etc.
+
+12/ GUI Interface (or at least plug into some other generic archive GUI interface)
+
+-------------------------------------------------------------------------------------------
+What isn't planned.
+-------------------------------------------------------------------------------------------
+
+Creating backup sets from the PC.  I can't really fathom how this would be in anyway useful
+since the whole point of the backup sets is that it allows me to store data that would
+otherwise be lost when archiving onto a PC.  (Such as record structures etc)
+
+
+-------------------------------------------------------------------------------------------
+Compilation
+-------------------------------------------------------------------------------------------
+
+This code should be relatively portable.  It relies heavily upon the use of stdint.h.  If
+this isn't natively provided by your compiler, search for it in google.  Doing this has
+allowed me to compile in:
+
+Visual Studio
+// ISO C9x  compliant stdint.h for Microsoft Visual Studio
+
+Solaris
+ * This file, <inttypes.h>, is tracking the ISO/JTC1/SC22/WG14 C committee's
+ * working draft for the revision of the current ISO C standard, ISO/IEC
+ * 9899:1990 Programming language - C.
+
+I've deliberately avoided struct overlays/alignment etc, so no special rules for compilation
+should be required.
+
+
+-------------------------------------------------------------------------------------------
+Credits
+-------------------------------------------------------------------------------------------
+
+Whilst primarily written by myself using a copy of Open VMS 5.5, and a Hex Editor, I have
+made use of the following :
+
+-------------------------------------------------------------------------------------------
+VMS Backup
+http://labs.hoffmanlabs.com/node/817
+
+Something I managed to *completely* miss when developing the application.  Chances are this
+tool will work for 99% of the people out there, and from what I've read, appears to have a
+far stronger pedigree than my tool, especially how long the code base as a whole has been
+around and how many backup sets it would have been used with (whilst mine has restored
+tens of thousands of files, in reality this is only in the sub-fifty range of archives all
+produced in a similar fashion).
+-------------------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------------------
+wildcards.c/h
+Copyright (C) 1996, 1997, 1998, 1999, 2000 Florian Schintke
+http://user.cs.tu-berlin.de/~schintke/references/wildcards/
+
+This is a very nice function to handle permutations of wild cards (asterisk and ? marks).
+
+Note : I've made a very slight mod to the header to extern "C" if being used from C++ code.
+-------------------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------------------
+timevmstounix algorithm (timevmstounix.c/h)
+Copyright (c) 2008 HoffmanLabs LLC
+http://labs.hoffmanlabs.com/node/735
+
+Nice concise algorithm to convert from the Open VMS time format into the UNIX standard used
+by C.
+
+Note : I've encapsulated this code within their own c/h files.
+-------------------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------------------
+vmsbackup.c
+John Douglas CAREY.
+Sven-Ove Westberg    (version 3.0)
+http://ftp.gcu.info/tuhs/PDP-11/Trees/2.11BSD/usr/src/new/vmsbackup/vmsbackup.c
+
+Very useful reference application written to perform the same task in UNIX from tape.  In
+fact it's easy to question why I wrote mine at all given the existance of this.  The
+reasoning is :
+1/ I didn't know it existed when I started.
+2/ By the time I did, I had certain functionality that went above/beyond, so using it as
+   reference to clean up as many hard-coded assumptions as I could was the way to go.
+-------------------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------------------
+bckread
+http://www.eskimo.com/~nickz/vms/bcketc.html
+
+Whilst there's no source available, and it doesn't handle some of the larger files I've
+thrown at it, and it forces files to unique 8:3 combinations, this has been useful for
+debugging save sets I've produced.
+-------------------------------------------------------------------------------------------
+
+
+-------------------------------------------------------------------------------------------
+History
+-------------------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------------------
+1.5 - Performed side-by-side testing with VMSBackup 4.4.3.
+      1/ Raw VBN writes for records were missing the final byte of a file.
+         This was due to records deliberately suppressing the final byte,
+         which was implemented due to observations at the time.  However
+         in reality, the core issue was already fixed, and the workaround
+         was interfering with the little used raw write mode.
+         This also allows me to remove needing to identify if this is a
+         record or not.
+      2/ Confirmed for all other scenarios I get comparable values, with
+         the major difference being EOL conventions which I've hard coded
+         to Windows standards.
+      3/ I've taken some initial measures to potentially allow more
+         flexibility in EOL detection / usage.  It's a possible change for
+         down the line, albeit these days most decent editors will allow
+         on the fly conversion anyway.
+1.4 - Small command line tweak.  The extraction default is now set on as
+      opposed to off, and -E has been replaced with -N, which disables
+      extraction instead of enabling it.  This means for a typical use
+      case, no parameters are required for the tool beyond the backup
+      set.
+1.3 - Added header dumping.
+1.2 - Fixed the following issues:
+      1/ The single-pass selection criteria was still broken.  A two pass
+         mechanism is required if one of the following is in effect:
+         a) Smart Extraction is enabled.
+         b) Version selection is in effect.
+      2/ Broke the mask handling for file extensions.
+         for example -M:*.ADA;* didn't work, but *.ADA*;* did!
+      3/ Enhanced the outputs for file format and file attributes based
+         upon comparison to VAX directory data.  What isn't completely
+         known is how much is hard coded, and how much is specific to the
+         VAX setup I'm using.
+      4/ Cleaned up invalid records at the EOF.  I've suppressed outputting
+         errors on the last block unless debug or enhanced debug is
+         selected.  Processing *will* still abort though.
+      5/ Fixed an issue whereby the tool would seemingly randomly choose to
+         place an EOL at the end of the file or ignore it.  This was the
+         result of some overly complex rules regarding records that span
+         blocks.  There's now a much simpler rule in place, if we're at the
+         end of a record and an LRCF isn't detected (and this is a file
+         requiring ASCII conversion), then an LRCF is added.
+      6/ Left some placemarker code in the DumpFullFileHeader to allow
+         alternating between a dir /full output and a backup view output.
+         Ideally this sort of thing could be configurable i.e.
+         -LB:[Options] for Backup View and -LD:[Options] for a Dir View
+         which could support the whole plethora of VAX options... but I
+         doubt I'll ever get to that.
+      7/ Fixed a very nasty bug whereby a variable record header that spans
+         a block wasn't correctly handled resulting in the file itself
+         being incorrectly handled in either a binary or ascii mode.
+1.1 - Fixed two issues:
+      1/ Broke the single-pass mechanism for data output.
+      2/ Fixed an issue with VBN Raw records whereby the file pointer wasn't
+         being incremented for the last file chunk.
+      There's still the invalid record at the EOF, but thus-far I've no clue
+      about what that actually represents but the issue seems harmless enough
+      for now.
+1.0 - First version under configuration control.
+0.4 - Removed the -A parameter in favour of improving wild card support to
+      handle VAX versioning, including relative versions (0, -1 etc).
+      So a mask of *.*;* is equivalent to -A, and a mask of *.*;0 is
+      equivalent to unsetting the flag.  This should improve useability
+      by some margin.  Now it's possible to get all versions of a file without
+      having to set -V!
+0.3 - Fixed issue in ProcessVBNVar whereby record entry headers that span
+      Blocks resulted in the tool locking up.  These are now handled
+      with no apparent issues.
+
+      Fixed issue in ProcessVBNNonVar whereby the LR/CF detection fell over
+      if LR/CF spanned two records.  Additionally improved detection logic
+      designed to ungarble various mangled LR/CF combinations.
+
+      Unified the majority of the file writing to use a new routine called
+      VMSWriteFile.  This gives a single point of entry for handling ASCII
+      data output.
+
+      Improved EOL handling in ProcessVBNNonVar which will hopefully
+      EOL's occuring if the record already ends with an EOL.  I'm hesitant
+      to suppress them if any EOL's are present until I've further data.
+      This should fix a certain mismatch between ASCII data transferred via
+      FTP and data decoded from the BCK archive.
+
+      Moved most of the code into the file Process.cpp.  This will
+      eventually be further broken down, but for now, it helps to allow
+      this file to focus on front-end matters.
+
+      Removed basictypes.h in favour of using stdint.h.  In the event that
+      this library isn't available (Visual Studio), you can grab a version
+      of the library from:
+
+      http://code.google.com/p/msinttypes/downloads/list
+
+      However it's worth noting that I had to modify line 50 to:
+
+      extern "C++" {
+
+      in order to get it to compile with Visual Studio 6.  Also, be sure to
+      add the following pre-processor definition __STDC_CONSTANT_MACROS.
+
+      This last update increases portability, and hopefully removes the
+      need for me to constantly re-jig types to increase compatability.
+      Anyone know of something similar for type alignment?
+
+0.2 - Fixed file pointer tracking in ProcessVBNNonVar to prevent garbage
+      data being appended to a file.
+
+      Modified ProcessVBNVar to handle VFC types (appear to be variable
+      records with 8 bit checksum data).  UDF has been mapped to just
+      output raw data.
+
+      Made default behaviour of invalid data or non-VBN/Volume/NULL records
+      to close any open file handles.
+
+      Minor compiler fix for Solaris when testing size/alignment data.
+
+      Now verified as correct on over 1 Gigs worth of backup sets
+      (> 20,000 files).  Auto mode actually corrected some issues found
+      when FTP'ing data which contained records and LR/CF data!
+
+0.1 - Initial version.
+-------------------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------------------
+Contact
+-------------------------------------------------------------------------------------------
+
+Please feel free to contact me with any issues etc.  This is a spare time project, but I'd
+certainly be interested to see if it handles other backup sets etc.  If you have any that
+don't work, please remember that unless I have at least a sample of failing data, there's
+not an awful lot I can do.
+
+Source code patches are also fine, whilst I won't force you to, I'm always happy to receive
+any enhancements / patches.  I'd also be interested to see if people can get this building
+in a non-windows environment (I personally run Windows and OS X, but primarily develop in
+Windows).
+
+I can be contacted at megatony@blueyonder.co.uk

@@ -1,4 +1,4 @@
-#define __VMSVERSION__ "1.3"
+#define __VMSVERSION__ "1.5"
 
 // VMS Backup Utiliy
 //
@@ -17,6 +17,26 @@
 //
 // History
 //
+// 1.5 - Performed side-by-side testing with VMSBackup 4.4.3.
+//       1/ Raw VBN writes for records were missing the final byte of a file.
+//          This was due to records deliberately suppressing the final byte,
+//          which was implemented due to observations at the time.  However
+//          in reality, the core issue was already fixed, and the workaround
+//          was interfering with the little used raw write mode.
+//          This also allows me to remove needing to identify if this is a
+//          record or not.
+//       2/ Confirmed for all other scenarios I get comparable values, with
+//          the major difference being EOL conventions which I've hard coded
+//          to Windows standards.
+//       3/ I've taken some initial measures to potentially allow more
+//          flexibility in EOL detection / usage.  It's a possible change for
+//          down the line, albeit these days most decent editors will allow
+//          on the fly conversion anyway.
+// 1.4 - Small command line tweak.  The extraction default is now set on as
+//       opposed to off, and -E has been replaced with -N, which disables
+//       extraction instead of enabling it.  This means for a typical use
+//       case, no parameters are required for the tool beyond the backup
+//       set.
 // 1.3 - Added header dumping.
 // 1.2 - Fixed the following issues:
 //       1/ The single-pass selection criteria was still broken.  A two pass
@@ -140,13 +160,13 @@ void DisplayHelp ()
 {
     fprintf (stdout, "VMSBackup Version " __VMSVERSION__ " " __DATE__ "\n");
     fprintf (stdout, "\n");
-    fprintf (stdout, "VMSBackup [FILE] [-L:listoption] [-E] [-X:extractmode] [-M:mask] [-F] [-V] [-D] [-?]\n");
+    fprintf (stdout, "VMSBackup [FILE] [-L:listoption] [-N] [-X:extractmode] [-M:mask] [-F] [-V] [-D] [-?]\n");
     fprintf (stdout, "\n");
     fprintf (stdout, "  FILE           Backup Data Set\n");
     fprintf (stdout, "  -L             Selects output list\n");
     fprintf (stdout, "  listoptions     S  Suppress Output             B  Brief Output (default)\n");
     fprintf (stdout, "                  F  Full Output                 C  CSV Output\n");
-    fprintf (stdout, "  -E             Extract File Contents (default off)\n");
+    fprintf (stdout, "  -N             Don't Extract File Contents\n");
     fprintf (stdout, "  -X             Selects Extraction Mode\n");
     fprintf (stdout, "  extractmode     S  Smart/Auto Mode (default)   A  ASCII Mode\n");
     fprintf (stdout, "                  B  Binary Mode                 R  Raw Mode\n");
@@ -343,8 +363,8 @@ int main (int argc, char** argv)
     sParameters.bOutputFull                     = false;
     sParameters.bOutputCSV                      = false;
 
-    // Default Mode : No extraction
-    sParameters.bExtract                        = false;
+    // Default Mode : Extraction
+    sParameters.bExtract                        = true;
 
     // Default Mode : Smart Extraction
     sParameters.bExtractModeSmart               = true;
@@ -437,9 +457,9 @@ int main (int argc, char** argv)
                     sParameters.bOutputFull                 = false;
                     sParameters.bOutputCSV                  = true;
                 }
-                else if (strcmp (argv[i], "-E") == 0)
+                else if (strcmp (argv[i], "-N") == 0)
                 {
-                    sParameters.bExtract                    = true;
+                    sParameters.bExtract                    = false;
                 }
                 else if ( (strcmp (argv[i], "-XS") == 0) || (strcmp (argv[i], "-X:S") == 0) )
                 {

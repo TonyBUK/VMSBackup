@@ -16,10 +16,13 @@
 #include "timevmstounix.h"
 //============================================================================
 
+// Temporary Kludge...  change this to the desired EOL format
+// if required.  Albeit VMSWriteFile will need it's ASCII Mode modified if that's
+// the case.
+const char      szEndOfLine[]           = {'\r','\n'};
+
 void VMSWriteFile (SBackupParameters* psParameters, unsigned long uiDataLength, uint8_t* cBuffer, FILE** ppCurrentOutputFile, bool* pbLastElementWasLFCR, bool* pbContainsLFCR)
 {
-    const char      szEndOfLine[2]      = {'\r','\n'};
-
     unsigned long   uiBufferPointer;
 
     bool            bLastElementWasLFCR = false;
@@ -47,7 +50,7 @@ void VMSWriteFile (SBackupParameters* psParameters, unsigned long uiDataLength, 
             else if (psParameters->bLFDetected && (cBuffer[uiBufferPointer] == '\n'))
             {
                 // This file already contains standard EOL conventions
-                fwrite (szEndOfLine, 2, sizeof (char), *ppCurrentOutputFile);
+                fwrite (szEndOfLine, sizeof(szEndOfLine) / sizeof (char), sizeof (char), *ppCurrentOutputFile);
                 psParameters->bLFDetected   = false;
 
                 // Indicate this data package contains an LF/CR entry
@@ -57,7 +60,7 @@ void VMSWriteFile (SBackupParameters* psParameters, unsigned long uiDataLength, 
             else if (!psParameters->bLFDetected && (cBuffer[uiBufferPointer] == '\n'))
             {
                 // This is not seen as a valid EOL, so normalise it to a PC standard
-                fwrite (szEndOfLine, 2, sizeof (char), *ppCurrentOutputFile);
+                fwrite (szEndOfLine, sizeof(szEndOfLine) / sizeof (char), sizeof (char), *ppCurrentOutputFile);
                 psParameters->bLFDetected   = false;
 
                 // Indicate this data package contains an LF/CR entry
@@ -67,7 +70,7 @@ void VMSWriteFile (SBackupParameters* psParameters, unsigned long uiDataLength, 
             else if (psParameters->bLFDetected && (cBuffer[uiBufferPointer] != '\n'))
             {
                 // This is not seen as a valid EOL, so normalise it to a PC standard
-                fwrite (szEndOfLine, 2, sizeof (char), *ppCurrentOutputFile);
+                fwrite (szEndOfLine, sizeof(szEndOfLine) / sizeof (char), sizeof (char), *ppCurrentOutputFile);
                 psParameters->bLFDetected   = false;
 
                 // Indicate this data package contains an LF/CR entry
@@ -104,19 +107,17 @@ void VMSWriteFile (SBackupParameters* psParameters, unsigned long uiDataLength, 
 
 void VMSWriteEOL (SBackupParameters* psParameters, FILE** ppCurrentOutputFile, bool bForceEOL)
 {
-    const char      szEndOfLine[2]      = {'\r','\n'};
-
     if (psParameters->bExtractModeASCII)
     {
         // If the last byte was \ '\r' it won't have been written
         if (((psParameters->uiFilePointer >= psParameters->uiFileSize) && psParameters->bLFDetected))
         {
-            fwrite (szEndOfLine, 1, sizeof (char), *ppCurrentOutputFile);
+            fwrite (szEndOfLine, sizeof(szEndOfLine) / sizeof (char), sizeof (char), *ppCurrentOutputFile);
             psParameters->bLFDetected   = false;
         }
         else if (bForceEOL)
         {
-            fwrite (szEndOfLine, 2, sizeof (char), *ppCurrentOutputFile);
+            fwrite (szEndOfLine, sizeof(szEndOfLine) / sizeof (char), sizeof (char), *ppCurrentOutputFile);
         }
     }
 }
@@ -1295,7 +1296,7 @@ void ProcessSummary (uint8_t* pcRecord)
 {
 }
 
-void ProcessVBNRaw (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psParameters, FILE** ppCurrentOutputFile, bool bIsRecord)
+void ProcessVBNRaw (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psParameters, FILE** ppCurrentOutputFile)
 {
     if ((psParameters->uiFilePointer + pcHeader->W_RSIZE ()) < psParameters->uiFileSize)
     {
@@ -1304,24 +1305,13 @@ void ProcessVBNRaw (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psP
     }
     else
     {
-        // Curiously, a record seems to be off by 1 byte?
-        if (bIsRecord)
-        {
-            VMSWriteFile (psParameters, psParameters->uiFileSize - psParameters->uiFilePointer - 1, cBuffer, ppCurrentOutputFile, NULL, NULL);
-            psParameters->uiFilePointer   = psParameters->uiFilePointer + psParameters->uiFileSize - psParameters->uiFilePointer - 1;
-        }
-        else
-        {
-            VMSWriteFile (psParameters, psParameters->uiFileSize - psParameters->uiFilePointer, cBuffer, ppCurrentOutputFile, NULL, NULL);
-            psParameters->uiFilePointer   = psParameters->uiFilePointer + psParameters->uiFileSize - psParameters->uiFilePointer;
-        }
+		VMSWriteFile (psParameters, psParameters->uiFileSize - psParameters->uiFilePointer, cBuffer, ppCurrentOutputFile, NULL, NULL);
+		psParameters->uiFilePointer   = psParameters->uiFilePointer + psParameters->uiFileSize - psParameters->uiFilePointer;
     }
 }
 
 void ProcessVBNNonVar (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psParameters, FILE** ppCurrentOutputFile, STypeLinkedList* psTypeList)
 {
-    const char      szEndOfLine[2]      = {'\r','\n'};
-
     // Variables
     uint16_t        uiRecordPointer     = 0;
 
@@ -1561,7 +1551,7 @@ void ProcessVBN (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psPara
             else if (!psParameters->bExtractFirstPass)
             {
                 // Process the record in Raw Mode
-                ProcessVBNRaw (cBuffer, pcHeader, psParameters, ppCurrentOutputFile, true);
+                ProcessVBNRaw (cBuffer, pcHeader, psParameters, ppCurrentOutputFile);
             }
 
             break;
@@ -1579,7 +1569,7 @@ void ProcessVBN (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psPara
             else
             {
                 // Process the record in Raw Mode
-                ProcessVBNRaw (cBuffer, pcHeader, psParameters, ppCurrentOutputFile, false);
+                ProcessVBNRaw (cBuffer, pcHeader, psParameters, ppCurrentOutputFile);
             }
 
             break;
@@ -1590,7 +1580,7 @@ void ProcessVBN (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psPara
             if (!psParameters->bExtractFirstPass)
             {
                 // Process the record in Raw Mode
-                ProcessVBNRaw (cBuffer, pcHeader, psParameters, ppCurrentOutputFile, false);
+                ProcessVBNRaw (cBuffer, pcHeader, psParameters, ppCurrentOutputFile);
             }
 
             break;

@@ -11,13 +11,13 @@ One very nice feature of this tool that I'm pretty proud of is the auto mode (by
 
 ***Usage***
 
-    VMSBackup [FILE] [-L:listoption] [-E] [-X:extractmode] [-M:mask] [-F] [-V] [-D] [-?]
+    VMSBackup [FILE] [-L:listoption] [-N] [-X:extractmode] [-M:mask] [-F] [-V] [-D] [-?]
 
       FILE           Backup Data Set
       -L             Selects output list
       listoptions     S  Suppress Output             B  Brief Output (default)
                       F  Full Output                 C  CSV Output
-      -E             Extract File Contents (default off)
+      -N             Don't Extract File Contents
       -X             Selects Extraction Mode
       extractmode     S  Smart/Auto Mode (default)   A  ASCII Mode
                       B  Binary Mode                 R  Raw Mode
@@ -32,7 +32,7 @@ One very nice feature of this tool that I'm pretty proud of is the auto mode (by
 
 The default usage will be:
 
-VMSBackup archive.bck -E
+VMSBackup archive.bck
 
 Which will extract the latest (only) revision of each file to the current folder using automatic extraction rules, where it will either try to convert the file into ASCII, or extract the file as pure binary.
 
@@ -41,7 +41,7 @@ Which will extract the latest (only) revision of each file to the current folder
 
 Currently the file mask *considers* the directory as part of the filename, even if by default it's stripped out.  So if you need a specific file, you may need to use part of the folder name.  i.e.
 
-VMSBackup archive.bck -E -M:*]filename.txt;0
+VMSBackup archive.bck -M:*]filename.txt;0
 
 Note: The version after the semi-colon follows OpenVMS rules, meaning:
 
@@ -56,7 +56,7 @@ And so on...  If there's enough demand I can probably tweak this.  However in my
 
 Because of the relative annoyance of a truly portable OS directory handling, this version doesn't support path preservation, however, this can be baked into the filename itself and post-processed if needed.  To include the full path in the filename, use the "-F" flag.  i.e.
 
-VMSBackup archive.bck -E -F
+VMSBackup archive.bck -F
 
 This will then cause files extracted to look like:
 
@@ -67,7 +67,7 @@ This will then cause files extracted to look like:
 
 Most file systems these days don't support file versioning natively within the file system itself.  Meaning if you want to extract a specific version, you *can* use the method outlined in *Extracting a Single File*, but if you need multiple versions extracted in one pass, the "-V" flag will come into play, which will append the file version onto the file name.  And chances are if you're doing so, you'll want to re-adjust the mask as follows:
 
-VMSBackup archive.bck -E -M:*.*;* -V
+VMSBackup archive.bck -M:*.*;* -V
 
 The will cause extracted files to look like this:
 
