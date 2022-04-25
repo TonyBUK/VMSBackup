@@ -29,10 +29,7 @@ the appropriate mode.
 O/S Requirements
 -------------------------------------------------------------------------------------------
 
-The compiled executable will require any version of Windows (I'm guessing '95 onwards).
-Personally I've tried it in XP and Vista.
-
-If building from source, there's no reason that it shouldn't support other O/S.  I have
+When building from source, there's no reason that it shouldn't support other O/S.  I have
 built and run it from Solaris and OS X Snow Leopard.  I've also heard of successful results
 on pre-Intel versions of OSX.
 
