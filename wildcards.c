@@ -68,12 +68,13 @@ int wildcardfit (char *wildcard, char *test)
     {
       switch (*wildcard)
         {
-        case '[':
-      wildcard++; /* leave out the opening square bracket */
-          fit = set (&wildcard, &test);
-      /* we don't need to decrement the wildcard as in case */
-      /* of asterisk because the closing ] is still there */
-          break;
+//!        Skip Square Brackets, as we want to treat these as normal characters rather than set checks.
+//!        case '[':
+//!      wildcard++; /* leave out the opening square bracket */
+//!          fit = set (&wildcard, &test);
+//!      /* we don't need to decrement the wildcard as in case */
+//!      /* of asterisk because the closing ] is still there */
+//!          break;
         case '?':
           test++;
           break;
