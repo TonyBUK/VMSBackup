@@ -2,6 +2,8 @@
 #define __VMSBackupTypes_H__
 
 #include <stdint.h>
+#include <map>
+#include <string>
 
 //////////////////////////////////////////////////////////////////////////////
 // Global Type Definitions
@@ -68,24 +70,12 @@ struct SBackupParameters
     bool            bExtractDebugEnhanced;
 };
 
-// Linked List used by the algorithm determining whether to extract a file
+// Map used by the algorithm determining whether to extract a file
 // revision
-struct SFileLinkedList
-{
-    char*               szFileNameNoVer;
-    int                 iVersion;
+typedef std::map<std::string, int> FileVersionType;
 
-    SFileLinkedList*    pNext;
-};
-
-// Linked List used by the Smart Parser algorithm to determine whether a file
+// Map used by the Smart Parser algorithm to determine whether a file
 // is ASCII or Binary
-struct STypeLinkedList
-{
-    char*               szFileName;
-    bool                bASCII;
-
-    STypeLinkedList*    pNext;
-};
+typedef std::map<std::string, bool> FileFormatType;
 
 #endif // __VMSBackupTypes_H__
