@@ -1,4 +1,4 @@
-#define __VMSVERSION__ "1.5"
+#define __VMSVERSION__ "1.6"
 
 // VMS Backup Utiliy
 //
@@ -14,141 +14,6 @@
 // Any remaining code that is not delimited shall be considered available for
 // any commercial/non-commercial usage and is not subject to any usage
 // limitations.
-//
-// History
-//
-// 1.5 - Performed side-by-side testing with VMSBackup 4.4.3.
-//       1/ Raw VBN writes for records were missing the final byte of a file.
-//          This was due to records deliberately suppressing the final byte,
-//          which was implemented due to observations at the time.  However
-//          in reality, the core issue was already fixed, and the workaround
-//          was interfering with the little used raw write mode.
-//          This also allows me to remove needing to identify if this is a
-//          record or not.
-//       2/ Confirmed for all other scenarios I get comparable values, with
-//          the major difference being EOL conventions which I've hard coded
-//          to Windows standards.
-//       3/ I've taken some initial measures to potentially allow more
-//          flexibility in EOL detection / usage.  It's a possible change for
-//          down the line, albeit these days most decent editors will allow
-//          on the fly conversion anyway.
-// 1.4 - Small command line tweak.  The extraction default is now set on as
-//       opposed to off, and -E has been replaced with -N, which disables
-//       extraction instead of enabling it.  This means for a typical use
-//       case, no parameters are required for the tool beyond the backup
-//       set.
-// 1.3 - Added header dumping.
-// 1.2 - Fixed the following issues:
-//       1/ The single-pass selection criteria was still broken.  A two pass
-//          mechanism is required if one of the following is in effect:
-//          a) Smart Extraction is enabled.
-//          b) Version selection is in effect.
-//       2/ Broke the mask handling for file extensions.
-//          for example -M:*.ADA;* didn't work, but *.ADA*;* did!
-//       3/ Enhanced the outputs for file format and file attributes based
-//          upon comparison to VAX directory data.  What isn't completely
-//          known is how much is hard coded, and how much is specific to the
-//          VAX setup I'm using.
-//       4/ Cleaned up invalid records at the EOF.  I've suppressed outputting
-//          errors on the last block unless debug or enhanced debug is
-//          selected.  Processing *will* still abort though.
-//       5/ Fixed an issue whereby the tool would seemingly randomly choose to
-//          place an EOL at the end of the file or ignore it.  This was the
-//          result of some overly complex rules regarding records that span
-//          blocks.  There's now a much simpler rule in place, if we're at the
-//          end of a record and an LRCF isn't detected (and this is a file
-//          requiring ASCII conversion), then an LRCF is added.
-//       6/ Left some placemarker code in the DumpFullFileHeader to allow
-//          alternating between a dir /full output and a backup view output.
-//          Ideally this sort of thing could be configurable i.e.
-//          -LB:[Options] for Backup View and -LD:[Options] for a Dir View
-//          which could support the whole plethora of VAX options... but I
-//          doubt I'll ever get to that.
-//       7/ Fixed a very nasty bug whereby a variable record header that spans
-//          a block wasn't correctly handled resulting in the file itself
-//          being incorrectly handled in either a binary or ascii mode.
-// 1.1 - Fixed two issues:
-//       1/ Broke the single-pass mechanism for data output.
-//       2/ Fixed an issue with VBN Raw records whereby the file pointer wasn't
-//          being incremented for the last file chunk.
-//       There's still the invalid record at the EOF, but thus-far I've no clue
-//       about what that actually represents but the issue seems harmless enough
-//       for now.
-// 1.0 - First version under configuration control.
-// 0.4 - Removed the -A parameter in favour of improving wild card support to
-//       handle VAX versioning, including relative versions (0, -1 etc).
-//       So a mask of *.*;* is equivalent to -A, and a mask of *.*;0 is
-//       equivalent to unsetting the flag.  This should improve useability
-//       by some margin.  Now it's possible to get all versions of a file without
-//       having to set -V!
-// 0.3 - Fixed issue in ProcessVBNVar whereby record entry headers that span
-//       Blocks resulted in the tool locking up.  These are now handled
-//       with no apparent issues.
-//
-//       Fixed issue in ProcessVBNNonVar whereby the LR/CF detection fell over
-//       if LR/CF spanned two records.  Additionally improved detection logic
-//       designed to ungarble various mangled LR/CF combinations.
-//
-//       Unified the majority of the file writing to use a new routine called
-//       VMSWriteFile.  This gives a single point of entry for handling ASCII
-//       data output.
-//
-//       Improved EOL handling in ProcessVBNNonVar which will hopefully
-//       EOL's occuring if the record already ends with an EOL.  I'm hesitant
-//       to suppress them if any EOL's are present until I've further data.
-//       This should fix a certain mismatch between ASCII data transferred via
-//       FTP and data decoded from the BCK archive.
-//
-//       Moved most of the code into the file Process.cpp.  This will
-//       eventually be further broken down, but for now, it helps to allow
-//       this file to focus on front-end matters.  The main file is now only
-//       responsible for determining whether the input data set can be
-//       physically opened.
-//
-//       Removed basictypes.h in favour of using stdint.h.  In the event that
-//       this library isn't available (Visual Studio), you can grab a version
-//       of the library from:
-//
-//       http://code.google.com/p/msinttypes/downloads/list
-//
-//       However it's worth noting that I had to modify line 50 to:
-//
-//       extern "C++" {
-//
-//       in order to get it to compile with Visual Studio 6.  Also, be sure to
-//       add the following pre-processor definition __STDC_CONSTANT_MACROS.
-//
-//       This last update increases portability, and hopefully removes the
-//       need for me to constantly re-jig types to increase compatability.
-//       Anyone know of something similar for type alignment?
-//
-//       Note: All enhancements will still be documented in a single place for
-//       simplicity.
-//
-//       Added an enhanced diagnostics mode.  This is only a start, but the
-//       idea is to basically give an indication as to *exactly* what the
-//       application is currently doing, in order to diagnose crashes,
-//       incorrect decodes etc.  All these features will probably eventually
-//       be reduced to conditional compile flags, but for now, given the
-//       relative immaturity of the application, it's nicer to do this way.
-//
-// 0.2 - Fixed file pointer tracking in ProcessVBNNonVar to prevent garbage
-//       data being appended to a file.
-//
-//       Modified ProcessVBNVar to handle VFC types (appear to be variable
-//       records with 8 bit checksum data).  UDF has been mapped to just
-//       output raw data.
-//
-//       Made default behaviour of invalid data or non-VBN/Volume/NULL records
-//       to close any open file handles.
-//
-//       Minor compiler fix for Solaris when testing size/alignment data.
-//
-//       Now verified as correct on over 1 Gigs worth of backup sets
-//       (> 20,000 files).  Auto mode actually corrected some issues found
-//       when FTP'ing data which contained records and LR/CF data!
-//
-// 0.1 - Initial version
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -273,7 +138,7 @@ bool SelfTestAlignment (char* szType, int64_t iExpectedValue, int64_t iActualVal
     return !bValid;
 }
 
-int main (int argc, char** argv)
+int main (int argc, char* argv[])
 {
     //////////////////////////////////////////////////////////////////////////
     // Constants
