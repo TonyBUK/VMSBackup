@@ -3,6 +3,8 @@
 #include <string.h>
 #include <math.h>
 #include <stdint.h>
+#include <string>
+#include <map>
 #include "Process.h"
 #include "BBHeader.h"
 #include "BBHeader.h"
@@ -224,7 +226,7 @@ void DecodeFileProtection (uint8_t cValue)
 
 void DecodeRecordFormat (uint8_t cValue, uint16_t uiSize)
 {
-    switch (cValue)
+    switch (cValue & 0x0F)
     {
         case RECORD_FORMAT_UDF:
         {
@@ -392,7 +394,7 @@ void DumpFullFileHeader (BSFileHeader* pcFileHeader, BRHeader* pcHeader, SBackup
     // Change 0 to 1 to have the output format match a directory /full syntax, otherwise it will
     // match a backup set view.
 
-#if 1
+#if 0
     //////////////////////////////////////////////////////////////////////////
     // Variables
 
@@ -649,8 +651,8 @@ void DumpCSVFileHeader (BSFileHeader* pcFileHeader, BRHeader* pcHeader, SBackupP
     fprintf (stdout, ",");
 
     // Output the Owner
-    fprintf (stdout, ",%06o,%06o,", SWAPSHORT (((uint16_t*) pcFileHeader->UIC ())[1]),
-                                    SWAPSHORT (((uint16_t*) pcFileHeader->UIC ())[0])   );
+    fprintf (stdout, "%06o,%06o,", SWAPSHORT (((uint16_t*) pcFileHeader->UIC ())[1]),
+                                   SWAPSHORT (((uint16_t*) pcFileHeader->UIC ())[0])   );
 
     // Output the Revised Date
     fprintf (stdout, "\"");
@@ -745,81 +747,27 @@ void DumpCSVFileHeader (BSFileHeader* pcFileHeader, BRHeader* pcHeader, SBackupP
     fprintf (stdout, "\n");
 }
 
-bool FindTargetFile (char* szFileName, SFileLinkedList* psFileList, SFileLinkedList** psFoundFileList)
-{
-    //////////////////////////////////////////////////////////////////////////
-    // Variables
-
-    // Entry Found
-    bool                bEntryFound         = false;
-    bool                bNoEntry            = false;
-
-    // Check if this is the first entry
-    if (psFileList->pNext == NULL)
-    {
-        // Create the first entry
-        *psFoundFileList                = psFileList;
-    }
-    else
-    {
-        *psFoundFileList                = psFileList->pNext;
-
-        while (!bNoEntry && !bEntryFound)
-        {
-            if (strcmp ((*psFoundFileList)->szFileNameNoVer, szFileName) == 0)
-            {
-                bEntryFound = true;
-            }
-            else
-            {
-                if ((*psFoundFileList)->pNext != NULL)
-                {
-                    *psFoundFileList                = (*psFoundFileList)->pNext;
-                }
-                else
-                {
-                    bNoEntry                        = true;
-                }
-            }
-        }
-    }
-
-    return bEntryFound;
-}
-
 // It is assumed by the time this routine is called, that SetNewerFile will
 // have parsed the entire file list to construct a list of latest versions
-bool IsTargetFile (char* szFileName, char* szTargetExtractMaskVersion, int iTargetExtractVersion, SFileLinkedList* psFileList)
+bool IsTargetFile (const std::string& kFileName, const char* szTargetExtractMaskVersion, const int iTargetExtractVersion, const FileVersionType& kFileList)
 {
     //////////////////////////////////////////////////////////////////////////
     // Variables
 
     // Extracted Data
-    char*               szExtractedName     = NULL;
+    std::string         kExtractedName      = kFileName;
     int                 iExtractedVersion   = 0;
 
     bool                bTarget             = false;
 
-    // Dynamic Entry into the Linked List
-    SFileLinkedList*    pBuffer;
-
     // Extract the File Name and Version Number
-    szExtractedName = new char[strlen (szFileName) + 1];
-    strcpy (szExtractedName, szFileName);
-
-    if (strstr (szExtractedName, ";") != NULL)
+    if (std::string::npos != kFileName.find(';'))
     {
-        *strstr (szExtractedName, ";")  = '\0';
-
-        iExtractedVersion   = strtol (strstr (szFileName, ";")+1, NULL, 10);
-    }
-    else
-    {
-        // Impossible to find the version number
-        iExtractedVersion   = 0;
+        kExtractedName      = kExtractedName.substr(0, kExtractedName.find(';'));
+        iExtractedVersion   = strtol(kFileName.data()+kFileName.find(';')+1, NULL, 10);
     }
 
-    if (FindTargetFile (szExtractedName, psFileList, &pBuffer))
+    if (kFileList.find(kExtractedName) != kFileList.cend())
     {
         if (strcmp (szTargetExtractMaskVersion, "*") == 0)
         {
@@ -840,7 +788,7 @@ bool IsTargetFile (char* szFileName, char* szTargetExtractMaskVersion, int iTarg
                 // So ;0 means it must be the latest version
                 //    ;-1 means it must be the version prior to the latest
                 // etc.
-                bTarget = iExtractedVersion == (pBuffer->iVersion + iTargetExtractVersion);
+                bTarget = iExtractedVersion == (kFileList.at(kExtractedName) + iTargetExtractVersion);
             }
         }
     }
@@ -848,204 +796,65 @@ bool IsTargetFile (char* szFileName, char* szTargetExtractMaskVersion, int iTarg
     return bTarget;
 }
 
-void SetNewerFile (char* szFileName, SFileLinkedList* psFileList)
+void SetNewerFile (const std::string& kFileName, FileVersionType& kFileList) //!SFileLinkedList* psFileList)
 {
     //////////////////////////////////////////////////////////////////////////
     // Variables
 
-    // Dynamic Entry into the Linked List
-    SFileLinkedList*    pBuffer;
-
     // Extracted Data
-    char*               szExtractedName     = NULL;
+    std::string         kExtractedName      = kFileName;
     int                 iExtractedVersion   = 0;
 
-    // Later Version
-    bool                bLaterVersion       = false;
-
     // Extract the File Name and Version Number
-    szExtractedName = new char[strlen (szFileName) + 1];
-    strcpy (szExtractedName, szFileName);
-
-    if (strstr (szExtractedName, ";") != NULL)
+    if (std::string::npos != kFileName.find(';'))
     {
-        *strstr (szExtractedName, ";")  = '\0';
-
-        iExtractedVersion   = strtol (strstr (szFileName, ";")+1, NULL, 10);
-    }
-    else
-    {
-        // Impossible to find the version number
-        iExtractedVersion   = 0;
+        kExtractedName      = kExtractedName.substr(0, kExtractedName.find(';'));
+        iExtractedVersion   = strtol(kFileName.data()+kFileName.find(';')+1, NULL, 10);
     }
 
-    if (!FindTargetFile (szExtractedName, psFileList, &pBuffer))
+    if (kFileList.find(kExtractedName) == kFileList.cend())
     {
         // By Default this must be the latest version
-        bLaterVersion                   = true;
-
-        pBuffer->pNext                  = new SFileLinkedList;
-
-        pBuffer                         = pBuffer->pNext;
-        pBuffer->szFileNameNoVer        = new char[strlen (szExtractedName) + 1];
-        strcpy (pBuffer->szFileNameNoVer, szExtractedName);
-        pBuffer->iVersion               = iExtractedVersion;
-
-        pBuffer->pNext                  = NULL;
+        kFileList.insert(std::pair<std::string, int>(kExtractedName, iExtractedVersion));
     }
     else
     {
         // Determine if this is a later version
-        bLaterVersion                   = iExtractedVersion >= pBuffer->iVersion;
-
-        if (bLaterVersion)
+        if (iExtractedVersion >= kFileList.at(kExtractedName))
         {
-            pBuffer->iVersion               = iExtractedVersion;
+            kFileList[kExtractedName] = iExtractedVersion;
         }
-    }
-
-    delete (szExtractedName);
-}
-
-void SetFileMode (char* szFileName, STypeLinkedList* psTypeList, bool bASCII)
-{
-    //////////////////////////////////////////////////////////////////////////
-    // Variables
-
-    // Dynamic Entry into the Linked List
-    STypeLinkedList*    pBuffer;
-
-    // Entry Found
-    bool                bEntryFound         = false;
-    bool                bNoEntry            = false;
-
-    // Check if this is the first entry
-    if (psTypeList->pNext == NULL)
-    {
-        // Create the first entry
-        pBuffer                         = psTypeList;
-    }
-    else
-    {
-        pBuffer                         = psTypeList->pNext;
-
-        while (!bNoEntry && !bEntryFound)
-        {
-            if (strcmp (pBuffer->szFileName, szFileName) == 0)
-            {
-                bEntryFound = true;
-            }
-            else
-            {
-                if (pBuffer->pNext != NULL)
-                {
-                    pBuffer                         = pBuffer->pNext;
-                }
-                else
-                {
-                    bNoEntry                        = true;
-                }
-            }
-        }
-    }
-
-    if (bEntryFound)
-    {
-        pBuffer->bASCII         = bASCII;
-    }
-    else
-    {
-        pBuffer->pNext                  = new STypeLinkedList;
-
-        pBuffer                         = pBuffer->pNext;
-        pBuffer->szFileName             = new char[strlen (szFileName) + 1];
-        strcpy (pBuffer->szFileName, szFileName);
-        pBuffer->bASCII                 = bASCII;
-
-        pBuffer->pNext                  = NULL;
     }
 }
 
-bool GetFileMode (char* szFileName, STypeLinkedList* psTypeList)
+void SetFileMode (const std::string& kFileName, FileFormatType& kTypeList, const bool bASCII)
 {
-    //////////////////////////////////////////////////////////////////////////
-    // Variables
-
-    // Dynamic Entry into the Linked List
-    STypeLinkedList*    pBuffer;
-
-    // Entry Found
-    bool                bEntryFound         = false;
-    bool                bNoEntry            = false;
-
     // Check if this is the first entry
-    if (psTypeList->pNext == NULL)
+    if (kTypeList.find(kFileName) == kTypeList.end())
     {
-        // Create the first entry
+        // Set the Entry
+        kTypeList.insert(std::pair<std::string, bool>(kFileName, bASCII));
+    }
+    else
+    {
+        kTypeList[kFileName] = bASCII;
+    }
+}
+
+bool GetFileMode (const std::string& kFileName, FileFormatType& kTypeList)
+{
+    // Check if the Entry Exists
+    if (kTypeList.find(kFileName) == kTypeList.end())
+    {
         return false;
     }
     else
     {
-        pBuffer                         = psTypeList->pNext;
-
-        while (!bNoEntry && !bEntryFound)
-        {
-            if (strcmp (pBuffer->szFileName, szFileName) == 0)
-            {
-                bEntryFound = true;
-            }
-            else
-            {
-                if (pBuffer->pNext != NULL)
-                {
-                    pBuffer                         = pBuffer->pNext;
-                }
-                else
-                {
-                    bNoEntry                        = true;
-                }
-            }
-        }
-    }
-
-    if (bEntryFound)
-    {
-        return pBuffer->bASCII;
-    }
-    else
-    {
-        return false;
+        return kTypeList[kFileName];
     }
 }
 
-char* GetLatestFile (STypeLinkedList* psTypeList)
-{
-    //////////////////////////////////////////////////////////////////////////
-    // Variables
-
-    // Dynamic Entry into the Linked List
-    STypeLinkedList*    pBuffer;
-
-    // Check if this is the first entry
-    if (psTypeList->pNext == NULL)
-    {
-        // No entries yet (shouldn't happen)
-        return (char*) "";
-    }
-    else
-    {
-        pBuffer                         = psTypeList->pNext;
-
-        while (pBuffer->pNext != NULL)
-        {
-            pBuffer                         = pBuffer->pNext;
-        }
-    }
-
-    return pBuffer->szFileName;
-}
-
-void ProcessFile (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psParameters, FILE** ppCurrentOutputFile, SFileLinkedList* psFileList, STypeLinkedList* psTypeList)
+void ProcessFile (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psParameters, FILE** ppCurrentOutputFile, std::string& kCurrentOutputFile, FileVersionType& kFileList, FileFormatType& kTypeList)
 {
     //////////////////////////////////////////////////////////////////////////
     // Variables
@@ -1093,7 +902,7 @@ void ProcessFile (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psPar
     if (bWildCardMatch)
     {
         // Add the file to the list, in order to generate a linked list of latest file versions only
-        SetNewerFile ((char*) cFileHeader.FILENAME (), psFileList);
+        SetNewerFile ((char*) cFileHeader.FILENAME (), kFileList);
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -1108,23 +917,21 @@ void ProcessFile (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psPar
             bTargetFile                         = IsTargetFile (    (char*) cFileHeader.FILENAME (),
                                                                     psParameters->szExtractMaskVersion,
                                                                     psParameters->iExtractVersion,
-                                                                    psFileList  );
+                                                                    kFileList  );
 
             // Inform the Parser that it is to ignore the VBN if this is not
             // the target revision
             psParameters->bIgnoreVBN            = !bTargetFile;
 
             // If this is a first pass and Smart Scan is enabled
-            if (psParameters->bExtractModeSmart && psParameters->bExtractFirstPass)
+            if (psParameters->bExtractModeSmart && psParameters->bExtractFirstPass && bTargetFile)
             {
-                if (bTargetFile)
-                {
-                    // Default the File Mode to ASCII
-                    psParameters->bExtractModeASCII     = true;
-                    psParameters->bExtractModeBinary    = false;
+                // Default the File Mode to ASCII
+                psParameters->bExtractModeASCII     = true;
+                psParameters->bExtractModeBinary    = false;
 
-                    SetFileMode ((char*) cFileHeader.FILENAME (), psTypeList, true);
-                }
+                SetFileMode ((char*) cFileHeader.FILENAME (), kTypeList, true);
+                kCurrentOutputFile = (char*) cFileHeader.FILENAME ();
 
                 //////////////////////////////////////////////////////////////////////
                 // DEBUG (ENHANCED)
@@ -1138,7 +945,7 @@ void ProcessFile (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psPar
                 //////////////////////////////////////////////////////////////////////
                 // END DEBUG (ENHANCED)
             }
-            else
+            else if (bTargetFile)
             {
                 //////////////////////////////////////////////////////////////////////
                 // DEBUG (ENHANCED)
@@ -1157,7 +964,7 @@ void ProcessFile (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psPar
             psParameters->bLFDetected               = false;
             psParameters->uiFilePointer             = 0;
             psParameters->uiFileSize                = (SWAPSHORT (((uint16_t*) cFileHeader.RECATTR ())[5]) * 512) - 512 + SWAPSHORT (((uint16_t*) cFileHeader.RECATTR ())[6]);
-            psParameters->cFormat                   = cFileHeader.RECATTR ()[0];
+            psParameters->cFormat                   = cFileHeader.RECATTR ()[0] & 0x0F;
             psParameters->uiRemainingRecordLength   = 0;
             psParameters->uiRemainingStartPos       = 0;
 
@@ -1166,7 +973,7 @@ void ProcessFile (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psPar
             {
                 if (psParameters->bExtractModeSmart)
                 {
-                    psParameters->bExtractModeASCII     = GetFileMode ((char*) cFileHeader.FILENAME (), psTypeList);
+                    psParameters->bExtractModeASCII     = GetFileMode ((char*) cFileHeader.FILENAME (), kTypeList);
                     psParameters->bExtractModeBinary    = !psParameters->bExtractModeASCII;
                 }
 
@@ -1260,13 +1067,13 @@ void ProcessFile (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psPar
             }
         }
     }
-    else
+    else if (!psParameters->bExtractFirstPass && bWildCardMatch)
     {
         // Determine if this is the Target File
         bTargetFile                         = IsTargetFile (    (char*) cFileHeader.FILENAME (),
                                                                 psParameters->szExtractMaskVersion,
                                                                 psParameters->iExtractVersion,
-                                                                psFileList  );
+                                                                kFileList  );
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -1310,7 +1117,7 @@ void ProcessVBNRaw (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psP
     }
 }
 
-void ProcessVBNNonVar (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psParameters, FILE** ppCurrentOutputFile, STypeLinkedList* psTypeList)
+void ProcessVBNNonVar (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psParameters, FILE** ppCurrentOutputFile, std::string& kCurrentOutputFile, FileFormatType& kTypeList)
 {
     // Variables
     uint16_t        uiRecordPointer     = 0;
@@ -1363,11 +1170,11 @@ void ProcessVBNNonVar (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* 
     if (!psParameters->bExtractModeASCII && psParameters->bExtractFirstPass &&psParameters->bExtractModeSmart)
     {
         psParameters->bExtractModeBinary    = true;
-        SetFileMode (GetLatestFile (psTypeList), psTypeList, false);
+        SetFileMode (kCurrentOutputFile, kTypeList, false);
     }
 }
 
-void ProcessVBNVar (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psParameters, FILE** ppCurrentOutputFile, STypeLinkedList* psTypeList)
+void ProcessVBNVar (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psParameters, FILE** ppCurrentOutputFile, std::string& kCurrentOutputFile, FileFormatType& kTypeList)
 {
     // Variables
     uint16_t        uiRecordPointer     = 0;
@@ -1404,6 +1211,14 @@ void ProcessVBNVar (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psP
             // First Pass requires the file to be scanned as long as it's deemed an ASCII file
             for (uiRecordPointer; (uiRecordPointer-psParameters->uiRemainingStartPos) < psParameters->uiRemainingRecordLength; uiRecordPointer++)
             {
+                // TODO: Probably a bug elsewhere, but sanity check an overflow of the record
+                if (uiRecordPointer >= pcHeader->W_RSIZE())
+                {
+                    psParameters->uiRemainingStartPos       =   0;
+                    psParameters->uiRemainingRecordLength  -=   uiRecordPointer;
+                    return;
+                }
+
                 if (psParameters->bExtractModeASCII)
                 {
                     if (cBuffer[uiRecordPointer] > 0x7F)
@@ -1415,6 +1230,25 @@ void ProcessVBNVar (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psP
         }
         else
         {
+            // TODO: Probably a bug elsewhere, but sanity check an overflow of the record
+            if ((uiRecordPointer + psParameters->uiRemainingRecordLength) >= pcHeader->W_RSIZE())
+            {
+                VMSWriteFile (psParameters, pcHeader->W_RSIZE() - uiRecordPointer, &cBuffer[uiRecordPointer], ppCurrentOutputFile, &bLastElementWasLFCR, &bContainsLFCR);
+                psParameters->uiRemainingStartPos       = 0;
+                psParameters->uiRemainingRecordLength  -= (pcHeader->W_RSIZE() - uiRecordPointer);
+                psParameters->uiFilePointer            += (pcHeader->W_RSIZE() - uiRecordPointer);
+
+                uiRecordPointer                        += (pcHeader->W_RSIZE() - uiRecordPointer);
+
+                // Record Pointers aren't allowed to finish on an odd byte
+                if ((uiRecordPointer % 2) != 0)
+                {
+                    psParameters->uiFilePointer++;
+                }
+
+                return;
+            }
+
             VMSWriteFile (psParameters, psParameters->uiRemainingRecordLength, &cBuffer[uiRecordPointer], ppCurrentOutputFile, &bLastElementWasLFCR, &bContainsLFCR);
 
             uiRecordPointer = uiRecordPointer + psParameters->uiRemainingRecordLength;
@@ -1445,6 +1279,14 @@ void ProcessVBNVar (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psP
     {
         uiRecordLength  = SWAPSHORT (*((uint16_t*) &cBuffer[uiRecordPointer])) - uiRecordLengthModifier;
         uiRecordPointer = uiRecordPointer + 2 + uiRecordLengthModifier;
+
+        // TODO: .DIR 'files' always seem to have 0xFFFF followed by a whole lot of nothing.  I've mitigated this for now by writing this as
+        //       data, but I need to do more testing to verify this.
+        if (0xFFFF == uiRecordLength)
+        {
+            psParameters->uiFilePointer += 2;
+            continue;
+        }
 
         if (uiRecordPointer <= pcHeader->W_RSIZE ())
         {
@@ -1521,20 +1363,23 @@ void ProcessVBNVar (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psP
     if (!psParameters->bExtractModeASCII && !psParameters->bExtractModeBinary)
     {
         psParameters->bExtractModeBinary    = true;
-        SetFileMode (GetLatestFile (psTypeList), psTypeList, false);
+        SetFileMode (kCurrentOutputFile, kTypeList, false);
     }
 }
 
-void ProcessVBN (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psParameters, FILE** ppCurrentOutputFile, STypeLinkedList* psTypeList)
+void ProcessVBN (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psParameters, FILE** ppCurrentOutputFile, std::string& kCurrentOutputFile, FileFormatType& kTypeList)
 {
     //////////////////////////////////////////////////////////////////////
     // DEBUG (ENHANCED)
-    if (psParameters->bExtractDebugEnhanced)
+    if (NULL != *ppCurrentOutputFile)
     {
-        // Output the Chosen Parameters
-        fprintf (stdout, "*** DEBUG *** ");
+        if (psParameters->bExtractDebugEnhanced)
+        {
+            // Output the Chosen Parameters
+            fprintf (stdout, "*** DEBUG *** ");
 
-        fprintf (stdout, "File Pointer = 0x%08X, File Size = 0x%08X\n", psParameters->uiFilePointer, psParameters->uiFileSize);
+            fprintf (stdout, "File Pointer = 0x%08X, File Size = 0x%08X\n", psParameters->uiFilePointer, psParameters->uiFileSize);
+        }
     }
     //////////////////////////////////////////////////////////////////////
     // END DEBUG (ENHANCED)
@@ -1546,7 +1391,7 @@ void ProcessVBN (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psPara
         {
             if (psParameters->bExtractModeASCII || psParameters->bExtractModeBinary)
             {
-                ProcessVBNVar (cBuffer, pcHeader, psParameters, ppCurrentOutputFile, psTypeList);
+                ProcessVBNVar (cBuffer, pcHeader, psParameters, ppCurrentOutputFile, kCurrentOutputFile, kTypeList);
             }
             else if (!psParameters->bExtractFirstPass)
             {
@@ -1564,7 +1409,7 @@ void ProcessVBN (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psPara
         {
             if (psParameters->bExtractModeASCII)
             {
-                ProcessVBNNonVar (cBuffer, pcHeader, psParameters, ppCurrentOutputFile, psTypeList);
+                ProcessVBNNonVar (cBuffer, pcHeader, psParameters, ppCurrentOutputFile, kCurrentOutputFile, kTypeList);
             }
             else
             {
@@ -1594,18 +1439,21 @@ void ProcessVBN (uint8_t* cBuffer, BRHeader* pcHeader, SBackupParameters* psPara
 
     //////////////////////////////////////////////////////////////////////
     // DEBUG (ENHANCED)
-    if (psParameters->bExtractDebugEnhanced)
+    if (NULL != *ppCurrentOutputFile)
     {
-        // Output the Chosen Parameters
-        fprintf (stdout, "*** DEBUG *** ");
+        if (psParameters->bExtractDebugEnhanced)
+        {
+            // Output the Chosen Parameters
+            fprintf (stdout, "*** DEBUG *** ");
 
-        fprintf (stdout, "File Pointer = 0x%08X, File Size = 0x%08X\n", psParameters->uiFilePointer, psParameters->uiFileSize);
+            fprintf (stdout, "File Pointer = 0x%08X, File Size = 0x%08X\n", psParameters->uiFilePointer, psParameters->uiFileSize);
+        }
     }
     //////////////////////////////////////////////////////////////////////
     // END DEBUG (ENHANCED)
 }
 
-bool ProcessBackupSaveSetRecord (uint8_t* pcBlock, uint32_t *uiAddress, BBHeader* pcHeader, SBackupParameters* psParameters, FILE** ppCurrentOutputFile, SFileLinkedList* psFileList, STypeLinkedList* psTypeList, bool bLastBlock)
+bool ProcessBackupSaveSetRecord (uint8_t* pcBlock, uint32_t *uiAddress, BBHeader* pcHeader, SBackupParameters* psParameters, FILE** ppCurrentOutputFile, std::string& kCurrentOutputFile, FileVersionType& kFileList, FileFormatType& kTypeList, bool bLastBlock)
 {
     //////////////////////////////////////////////////////////////////////////
     // Variables
@@ -1715,8 +1563,9 @@ bool ProcessBackupSaveSetRecord (uint8_t* pcBlock, uint32_t *uiAddress, BBHeader
                             &cRecordHeader,
                             psParameters,
                             ppCurrentOutputFile,
-                            psFileList,
-                            psTypeList  );
+                            kCurrentOutputFile,
+                            kFileList,
+                            kTypeList  );
             break;
         }
 
@@ -1740,7 +1589,8 @@ bool ProcessBackupSaveSetRecord (uint8_t* pcBlock, uint32_t *uiAddress, BBHeader
                                 &cRecordHeader,
                                 psParameters,
                                 ppCurrentOutputFile,
-                                psTypeList  );
+                                kCurrentOutputFile,
+                                kTypeList  );
             }
 
             break;
@@ -1755,6 +1605,7 @@ bool ProcessBackupSaveSetRecord (uint8_t* pcBlock, uint32_t *uiAddress, BBHeader
             }
 
             return false;
+
             break;
         }
     }
@@ -1766,7 +1617,7 @@ bool ProcessBackupSaveSetRecord (uint8_t* pcBlock, uint32_t *uiAddress, BBHeader
     return true;
 }
 
-bool ProcessBlock (uint8_t* cBlock, BBHeader* pcBlockHeader, SBackupParameters* psParameters, FILE** ppCurrentOutputFile, SFileLinkedList* psFileList, STypeLinkedList* psTypeList, uint32_t uiBaseAddress, uint32_t uiMaxAddress)
+bool ProcessBlock (uint8_t* cBlock, BBHeader* pcBlockHeader, SBackupParameters* psParameters, FILE** ppCurrentOutputFile, std::string& kCurrentOutputFile, FileVersionType& kFileList, FileFormatType& kTypeList, uint32_t uiBaseAddress, uint32_t uiMaxAddress)
 {
     //////////////////////////////////////////////////////////////////////////
     // Variables
@@ -1831,8 +1682,9 @@ bool ProcessBlock (uint8_t* cBlock, BBHeader* pcBlockHeader, SBackupParameters* 
                                                                     pcBlockHeader,
                                                                     psParameters,
                                                                     ppCurrentOutputFile,
-                                                                    psFileList,
-                                                                    psTypeList,
+                                                                    kCurrentOutputFile,
+                                                                    kFileList,
+                                                                    kTypeList,
                                                                     bLastBlock  );
 
             // Output Errors if the Record is invalid
@@ -1915,6 +1767,7 @@ bool ProcessBackup (FILE* pFile, SBackupParameters* psParameters)
 
     // Current Output File
     FILE*               pCurrentOutputFile      = NULL;
+    std::string         kCurrentOutputFile;
 
     // Pointer to the Start of the File
     int32_t             pAbsStart;
@@ -1938,24 +1791,10 @@ bool ProcessBackup (FILE* pFile, SBackupParameters* psParameters)
     bool                bSecondPass             = false;
 
     // File Linked List
-    SFileLinkedList     sFileList;
+    FileVersionType     kFileList;
 
     // Type Linked List
-    STypeLinkedList     sTypeList;
-
-    //////////////////////////////////////////////////////////////////////////
-    // Default the File Linked List
-
-    sFileList.szFileNameNoVer               = NULL;
-    sFileList.iVersion                      = 0;
-    sFileList.pNext                         = NULL;
-
-    //////////////////////////////////////////////////////////////////////////
-    // Default the Type Linked List
-
-    sTypeList.szFileName                    = NULL;
-    sTypeList.bASCII                        = false;
-    sTypeList.pNext                         = NULL;
+    FileFormatType      kTypeList;
 
     //////////////////////////////////////////////////////////////////
     // Process the Backup Set
@@ -2028,7 +1867,7 @@ bool ProcessBackup (FILE* pFile, SBackupParameters* psParameters)
             // Process the current block
             if (!feof (pFile))
             {
-                bValid  = ProcessBlock (cBlock, &cBlockHeader, psParameters, &pCurrentOutputFile, &sFileList, &sTypeList, pBlock, pAbsEnd);
+                bValid  = ProcessBlock (cBlock, &cBlockHeader, psParameters, &pCurrentOutputFile, kCurrentOutputFile, kFileList, kTypeList, pBlock, pAbsEnd);
             }
 
             if (!bValid && !psParameters->bExtractFirstPass)
@@ -2077,6 +1916,8 @@ bool ProcessBackup (FILE* pFile, SBackupParameters* psParameters)
     } while (bSecondPass);
 
     // Debug : If the block was invalid, dump the block
+
+#if 0
     if (!bValid)
     {
         //////////////////////////////////////////////////////////
@@ -2094,6 +1935,7 @@ bool ProcessBackup (FILE* pFile, SBackupParameters* psParameters)
             fprintf (stdout, "*** END DEBUG ***\n");
         }
     }
+#endif
 
     // Close any remaining files
     if (pCurrentOutputFile != NULL)
