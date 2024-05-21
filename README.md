@@ -9,6 +9,19 @@ This was one of my first attempts to try and write something to work in differen
 
 One very nice feature of this tool that I'm pretty proud of is the auto mode (by default) where it will attempt to auto-detect between text/binary files to produce something that's compatible with your OS of choice.
 
+***Updates***
+
+1.6 is mostly minor changes brought about by comparing with the Python Port.
+
+- Fixed a crashing bug where one of the backup save sets was actually crashing due to the record length apparently being larger than a block.
+- Fixed an issue where some files had record legnths of 0xFFFF.
+- Fixed some minor output issues.
+- Replaced some nonsensical linked list processing with STL Maps.  Over time I'm probably going to leverage STL more to simplify the code, especially with string processing, as well as bring the code base more in-line with the Python Port.
+- Fixed issue in wildcards where [] was interpetted as a set, for VMS files it makes more sense to process these as literally ASCII characters.
+- Fixed issue where file formats seemed to have data in the upper nibble, masked for now.
+- Added a simple python script to make the "-F" flag more tolerable, as this will remove the file path from the file name, and actually move the files into the associated paths.  Main reason I skipped this before was due to how OS specific some of the operations are, whereas at least with Python, someone else has dealt with all of that for me.
+
+
 ***Usage***
 
     VMSBackup [FILE] [-L:listoption] [-N] [-X:extractmode] [-M:mask] [-F] [-V] [-D] [-?]
@@ -61,6 +74,10 @@ VMSBackup archive.bck -F
 This will then cause files extracted to look like:
 
 [mypath.in.vax.format]myfile.txt
+
+To try and help mitigate this a bit, I've created a relatively simplistic Python script that will take an output which used the "-F" flag, and use that to put the file into an appropriate folder.  In the example above, it would move the file to:
+
+~/mypath/in/vax/format/myfile.txt
 
 
 **Version Handling**
