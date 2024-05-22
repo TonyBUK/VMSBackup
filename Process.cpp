@@ -30,6 +30,12 @@ void VMSWriteFile (SBackupParameters* psParameters, unsigned long uiDataLength, 
     bool            bLastElementWasLFCR = false;
     bool            bContainsLFCR       = false;
 
+    // TODO: This is covering up a bug elsewhere where 0 byte writes are somehow being passed onwards...
+    if (0 == uiDataLength)
+    {
+        return;
+    }
+
     if (psParameters == NULL)
     {
         // Assume Binary
