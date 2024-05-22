@@ -1,5 +1,5 @@
 # VMSBackup
-OpenVMS Save Set Reader
+OpenVMS Save Set Reader (C++)
 
 This is a pretty old reverse engineering project of mine.  This will take a valid OpenVMS tape set (.BCK) file and extract the contents.  Primarily this is designed to produce the least mangled files on a modern OS, but there are comprimises to be made.  The Tape Set format is a wrapper for the PDP-11 file system, which stores as meta-data within the file system itself critical data to a file that would these days form part of the file data itself, primarily relating to record structures.
 
@@ -9,7 +9,13 @@ This was one of my first attempts to try and write something to work in differen
 
 One very nice feature of this tool that I'm pretty proud of is the auto mode (by default) where it will attempt to auto-detect between text/binary files to produce something that's compatible with your OS of choice.
 
+An alternative to this is the Python version, which you can grab here: https://github.com/TonyBUK/VMSBackupPython
+
+Effectively the same tool, but a little more portable, a little slewer, but with a couple of extra features.  I'll be maintaining both.
+
 ***Updates***
+
+1.7 is a very tiny bugfix to remove superflous new lines appearing in rare cases in ASCII mode files.  My next goal after this is a code cleanup, to remove alot of the C'isms littered throughout the code.
 
 1.6 is mostly minor changes brought about by comparing with the Python Port.
 
