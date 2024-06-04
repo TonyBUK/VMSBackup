@@ -11,7 +11,7 @@ One very nice feature of this tool that I'm pretty proud of is the auto mode (by
 
 An alternative to this is the Python version, which you can grab here: https://github.com/TonyBUK/VMSBackupPython
 
-Effectively the same tool, but a little more portable, a little slewer, but with a couple of extra features.  I'll be maintaining both.
+Effectively the same tool, but a little more portable, a little slower, but with a couple of extra features.  I'll be maintaining both.
 
 ***Updates***
 
